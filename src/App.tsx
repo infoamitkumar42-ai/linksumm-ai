@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import History from './pages/History';
 import SharedSummary from './pages/SharedSummary';
+import AuthCallback from './pages/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Pricing } from './pages/Pricing';
 import { Account } from './pages/Account';
@@ -20,6 +21,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/s/:shareId" element={<SharedSummary />} />
         <Route 

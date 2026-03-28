@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFreemium } from '../hooks/useFreemium';
 import { PaymentModal } from '../components/PaymentModal';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
 
 export const Account: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ export const Account: React.FC = () => {
         
         if (paypalSuccess === 'success' && token) {
           setLoading(true);
-          const execRes = await fetch(`${API_URL}/api/execute-paypal-subscription`, {
+          const execRes = await fetch(`${BACKEND_URL}/api/execute-paypal-subscription`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -50,7 +50,7 @@ export const Account: React.FC = () => {
           }
         }
 
-        const response = await fetch(`${API_URL}/api/subscription-status/${session.user.id}`);
+        const response = await fetch(`${BACKEND_URL}/api/subscription-status/${session.user.id}`);
         if (response.ok) {
           const data = await response.json();
           setSubStatus(data);
@@ -75,7 +75,7 @@ export const Account: React.FC = () => {
     
     setCanceling(true);
     try {
-      const response = await fetch(`${API_URL}/api/cancel-subscription`, {
+      const response = await fetch(`${BACKEND_URL}/api/cancel-subscription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

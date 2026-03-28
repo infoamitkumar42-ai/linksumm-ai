@@ -4,7 +4,7 @@ import { X, CreditCard, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { detectUserCountry, loadRazorpayScript } from '../lib/payment';
 import { supabase } from '../lib/supabase';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -42,7 +42,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onS
           throw new Error('Razorpay SDK failed to load. Are you online?');
         }
 
-        const response = await fetch(`${API_URL}/api/create-razorpay-subscription`, {
+        const response = await fetch(`${BACKEND_URL}/api/create-razorpay-subscription`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -83,7 +83,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onS
         paymentObject.open();
       } else {
         // PayPal Flow
-        const response = await fetch(`${API_URL}/api/create-paypal-subscription`, {
+        const response = await fetch(`${BACKEND_URL}/api/create-paypal-subscription`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
