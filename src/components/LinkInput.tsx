@@ -5,10 +5,11 @@ import { toast } from 'sonner';
 
 interface LinkInputProps {
   onSubmit: (url: string) => void;
+  onUploadClick: () => void;
   isLoading: boolean;
 }
 
-export default function LinkInput({ onSubmit, isLoading }: LinkInputProps) {
+export default function LinkInput({ onSubmit, onUploadClick, isLoading }: LinkInputProps) {
   const [url, setUrl] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,6 +62,14 @@ export default function LinkInput({ onSubmit, isLoading }: LinkInputProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+        <button 
+          onClick={onUploadClick}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-medium text-white hover:bg-white/20 transition-all disabled:opacity-50"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Upload File
+        </button>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#30D158]/10 border border-[#30D158]/20 text-xs font-medium text-[#30D158]">
           <Youtube className="w-3.5 h-3.5" />
           YouTube Shorts <span className="opacity-70 ml-1">95% success</span>

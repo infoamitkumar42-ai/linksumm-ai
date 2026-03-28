@@ -100,7 +100,11 @@ export default function Home() {
 
         {!isLoading && !result && (
           <>
-            <LinkInput onSubmit={handleSummarize} isLoading={isLoading} />
+            <LinkInput 
+              onSubmit={handleSummarize} 
+              onUploadClick={triggerFileUpload}
+              isLoading={isLoading} 
+            />
             {error && (
               <ErrorFallback 
                 error={error} 
