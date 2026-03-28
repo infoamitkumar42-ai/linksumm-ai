@@ -1,61 +1,82 @@
 import os
 import uuid
-import yt_dlp
 import logging
+import instaloader
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
 def download_audio(url: str) -> str:
     """
-    Downloads audio from the given URL using yt-dlp.
-    Saves the file as an MP3 in the /tmp/ directory.
-    Returns the path to the downloaded audio file.
+    Downloads audio from Instagram Reel using Instaloader.
     """
-    # Generate a unique filename
-    file_id = str(uuid.uuid4())
-    output_template = f"/tmp/{file_id}.%(ext)s"
-    
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_template,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '64',
-        }],
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-        },
-        'socket_timeout': 30,
-        'quiet': True,
-        'no_warnings': True,
-    }
-    
     try:
-        logger.info(f"Downloading audio for URL: {url}")
+        # Initialize Instaloader
+        L = instaloader.Instaloader(
+            download_videos=True,
+            download_video_thumbnails=False,
+            download_comments=False,
+            save_metadata=False,
+            compress_json=False,
+            dirname_pattern="/tmp",
+            filename_pattern="{shortcode}"
+        )
+        
+        # Extract shortcode from URL
+        shortcode = url.split("/")[-2] if url.endswith("/") else url.split("/")[-1]
+        shortcode = shortcode.split("?")[0]  # Remove query params
+        
+        logger.info(f"Downloading reel with shortcode: {shortcode}")
+        
+        # Download the reel
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        
+        if not post.is_video:
+            raise HTTPException(
+                status_code=422,
+                detail="This post is not a video"
+            )
+        
+        # Download video
+        video_url = post.video_url
+        
+        # Download using yt-dlp (works better for actual download)
+        import yt_dlp
+        
+        file_id = str(uuid.uuid4())
+        output_path = f"/tmp/{file_id}"
+        
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': f'{output_path}.%(ext)s',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '64',
+            }],
+            'quiet': True,
+        }
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            # The actual file will be saved as .mp3 because of the postprocessor
-            expected_filename = f"/tmp/{file_id}.mp3"
+            ydl.download([video_url])
+        
+        audio_file = f"{output_path}.mp3"
+        
+        if os.path.exists(audio_file):
+            logger.info(f"Audio downloaded: {audio_file}")
+            return audio_file
+        else:
+            raise Exception("Audio extraction failed")
             
-            if not os.path.exists(expected_filename):
-                raise Exception("Downloaded file not found")
-                
-            logger.info(f"Successfully downloaded audio to {expected_filename}")
-            return expected_filename
-            
-    except yt_dlp.utils.DownloadError as e:
-        logger.error(f"yt-dlp download error: {str(e)}")
+    except instaloader.exceptions.InstaloaderException as e:
+        logger.error(f"Instaloader error: {str(e)}")
         raise HTTPException(
-            status_code=422, 
-            detail="Could not download. Make sure reel is public"
+            status_code=422,
+            detail="Could not access this reel. Make sure it's public."
         )
     except Exception as e:
-        logger.error(f"Unexpected error during download: {str(e)}")
+        logger.error(f"Download error: {str(e)}")
         raise HTTPException(
-            status_code=422, 
-            detail="Could not download. Make sure reel is public"
+            status_code=422,
+            detail=f"Download failed: {str(e)}"
         )
