@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Crown, Clock } from 'lucide-react';
+import { X, Crown, Clock, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface QuotaExceededModalProps {
@@ -39,7 +39,7 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
 
   if (!isOpen) return null;
 
-  const isUnauthenticated = reason === 'unauthenticated';
+  const isUnauthenticated = reason === 'unauthenticated' || reason === 'anonymous_quota_exceeded';
 
   return (
     <AnimatePresence>
@@ -63,22 +63,20 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
             </div>
 
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              {isUnauthenticated ? 'Login Required' : 'Daily Limit Reached'}
+              Daily Limit Reached
             </h2>
             
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {message || (isUnauthenticated ? 'Please login to summarize reels.' : "You've used your 2 free summaries for today. Upgrade to Premium for unlimited access and zero ads.")}
+              {message || "You've used your 2 free summaries for today."}
             </p>
 
-            {!isUnauthenticated && (
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-8 border border-gray-100 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Quota resets in</p>
-                <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">{timeLeft}</p>
-              </div>
-            )}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-8 border border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Quota resets in</p>
+              <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">{timeLeft}</p>
+            </div>
 
-            <div className="space-y-4">
-              {isUnauthenticated ? (
+            <div className="space-y-3">
+              {isUnauthenticated && (
                 <button
                   onClick={() => {
                     onClose();
@@ -86,29 +84,28 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#007AFF] hover:bg-[#0056b3] text-white font-semibold rounded-xl transition-all shadow-lg"
                 >
-                  Sign In
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    onClose();
-                    navigate('/pricing');
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/25"
-                >
-                  <Crown className="w-5 h-5" />
-                  Upgrade to Premium
+                  <LogIn className="w-5 h-5" />
+                  Sign In (Get 2 more free)
                 </button>
               )}
               
-              {!isUnauthenticated && (
-                <button
-                  onClick={onClose}
-                  className="w-full py-3 px-4 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
-                >
-                  Maybe Later
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  onClose();
+                  navigate('/pricing');
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/25"
+              >
+                <Crown className="w-5 h-5" />
+                Upgrade to Premium
+              </button>
+              
+              <button
+                onClick={onClose}
+                className="w-full py-3 px-4 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
+              >
+                Come back tomorrow
+              </button>
             </div>
           </div>
         </motion.div>
@@ -116,3 +113,4 @@ export const QuotaExceededModal: React.FC<QuotaExceededModalProps> = ({ isOpen, 
     </AnimatePresence>
   );
 };
+

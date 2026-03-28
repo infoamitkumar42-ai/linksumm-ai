@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
-import { Sparkles, History, LogOut, User } from 'lucide-react';
+import { Sparkles, History, LogOut, User, Crown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useFreemium } from '../hooks/useFreemium';
 
 export default function Navbar() {
   const [user, setUser] = useState<any>(null);
+  const { isPremium } = useFreemium();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,6 +40,12 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           {user ? (
             <>
+              {isPremium && (
+                <Link to="/account" className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-xs font-medium text-amber-500">
+                  <Crown className="w-3.5 h-3.5" />
+                  PRO
+                </Link>
+              )}
               <Link to="/history" className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
                 <History className="w-4 h-4" />
                 <span className="hidden sm:inline">History</span>

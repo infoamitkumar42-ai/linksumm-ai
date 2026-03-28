@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
 
 export interface QuotaStatus {
   can_summarize: boolean;
@@ -15,26 +16,45 @@ export const useFreemium = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
 
+  const checkAnonymousQuota = (): QuotaStatus => {
+    const today = new Date().toDateString();
+    const savedDate = localStorage.getItem('ls_date');
+    const savedCount = parseInt(localStorage.getItem('ls_count') || '0');
+    
+    if (savedDate !== today) {
+      localStorage.setItem('ls_date', today);
+      localStorage.setItem('ls_count', '0');
+      return { can_summarize: true, remaining: 2, reason: 'unauthenticated' };
+    }
+    
+    const remaining = Math.max(0, 2 - savedCount);
+    return { 
+      can_summarize: remaining > 0, 
+      remaining, 
+      reason: 'unauthenticated',
+      message: remaining === 0 ? "You've used your 2 free summaries today." : undefined
+    };
+  };
+
+  const incrementAnonymousUsage = () => {
+    const count = parseInt(localStorage.getItem('ls_count') || '0');
+    localStorage.setItem('ls_count', (count + 1).toString());
+  };
+
   const checkQuota = async () => {
     setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        // Unauthenticated users get 0 quota, or we can allow 1 free try based on IP
-        // For now, let's say they need to login
-        const status = {
-          can_summarize: false,
-          remaining: 0,
-          reason: 'unauthenticated',
-          message: 'Please login to summarize reels.'
-        };
+        const status = checkAnonymousQuota();
         setQuotaStatus(status);
         setIsLoading(false);
         return status;
       }
 
-      const response = await fetch(`${API_URL}/api/check-quota`, {
+      // Use BACKEND_URL for consistency with Home.tsx
+      const response = await fetch(`${BACKEND_URL}/api/check-quota`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,9 +79,16 @@ export const useFreemium = () => {
     }
   };
 
+  const incrementUsage = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      incrementAnonymousUsage();
+    }
+  };
+
   useEffect(() => {
     checkQuota();
   }, []);
 
-  return { quotaStatus, checkQuota, isLoading, isPremium };
+  return { quotaStatus, checkQuota, incrementUsage, isLoading, isPremium };
 };

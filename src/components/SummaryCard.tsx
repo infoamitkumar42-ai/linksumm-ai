@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ShareButton from './ShareButton';
+import { LoginModal } from './LoginModal';
 
 interface SummaryCardProps {
   summary: string;
@@ -30,6 +31,7 @@ export default function SummaryCard({
   const [isCopied, setIsCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
 
@@ -52,7 +54,7 @@ export default function SummaryCard({
 
   const handleSave = async () => {
     if (!user) {
-      navigate('/login');
+      setIsLoginModalOpen(true);
       return;
     }
 
@@ -159,7 +161,7 @@ export default function SummaryCard({
                 <Lock className="w-4 h-4" />
               )}
               <span className="hidden sm:inline">
-                {isSaved ? 'Saved!' : user ? 'Save' : 'Sign in to save'}
+                {isSaved ? 'Saved!' : 'Save'}
               </span>
             </button>
             
@@ -189,6 +191,7 @@ export default function SummaryCard({
           </div>
         </div>
       </div>
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </motion.div>
   );
 }

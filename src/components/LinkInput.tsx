@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Instagram, Facebook, Sparkles, Youtube, Upload } from 'lucide-react';
+import { Instagram, Facebook, Sparkles, Youtube, Upload, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
+import { Link } from 'react-router-dom';
 
 interface LinkInputProps {
   onSubmit: (url: string) => void;
@@ -11,6 +13,13 @@ interface LinkInputProps {
 
 export default function LinkInput({ onSubmit, onUploadClick, isLoading }: LinkInputProps) {
   const [url, setUrl] = useState('');
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +92,15 @@ export default function LinkInput({ onSubmit, onUploadClick, isLoading }: LinkIn
           Facebook Reels <span className="opacity-70 ml-1">Beta</span>
         </div>
       </div>
+
+      {!user && (
+        <div className="mt-6 flex justify-center">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-gray-400">
+            <Info className="w-3.5 h-3.5 text-[#007AFF]" />
+            <span><Link to="/login" className="text-[#007AFF] hover:underline">Sign in</Link> to save your summaries to history</span>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 text-center">
         <p className="text-sm text-[#8E8E93] mb-3">Try these examples:</p>

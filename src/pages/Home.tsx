@@ -25,7 +25,7 @@ export default function Home() {
   const [quotaMessage, setQuotaMessage] = useState('');
   const [quotaReason, setQuotaReason] = useState('');
 
-  const { checkQuota, isPremium } = useFreemium();
+  const { checkQuota, incrementUsage, isPremium } = useFreemium();
 
   // Debug: Log backend URL on mount
   console.log('🔧 Backend URL configured:', BACKEND_URL);
@@ -67,6 +67,7 @@ export default function Home() {
       console.log('✅ Summary received:', data);
       setResult(data);
       toast.success('Summary generated successfully!');
+      await incrementUsage();
     } catch (err: any) {
       console.error('❌ Error:', err);
       setError(err.message || 'Failed to process video');
@@ -123,6 +124,7 @@ export default function Home() {
       console.log('✅ File summarized successfully:', data);
       setResult(data);
       toast.success('File summarized successfully!');
+      await incrementUsage();
     } catch (err: any) {
       console.error('❌ Error:', err);
       setError(err.message || 'Failed to process uploaded file');
