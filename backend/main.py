@@ -25,7 +25,7 @@ load_dotenv()
 # Initialize FastAPI
 app = FastAPI(title="LinkSumm AI Backend")
 
-# GLOBAL EXCEPTION HANDLERS: Ensure we ALWAYS return JSON, never HTML
+# GLOBAL EXCEPTION HANDLERS
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"GLOBAL ERROR CAUGHT: {str(exc)}")
@@ -53,11 +53,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-    allow_origins=["*"],  # In production, replace with frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,19 +89,19 @@ class SavePublicSummaryRequest(BaseModel):
     word_count: int
 
 def validate_url(url: str) -> str:
-    """Validates if the URL is from YouTube Shorts, Instagram, or Facebook and returns the platform."""
-    yt_pattern = r'(youtube\.com/shorts/|youtu\.be/)'
-    ig_pattern = r'instagram\.com/(reel|reels|p)/'
-    fb_pattern = r'(facebook\.com/reel/|fb\.watch/|facebook\.com/share/r/)'
-    
-    if re.search(yt_pattern, url):
-        return "youtube"
-    elif re.search(ig_pattern, url):
-        return "instagram"
-    elif re.search(fb_pattern, url):
-        return "facebook"
-    else:
-        raise HTTPException(status_code=400, detail="Invalid URL. Please provide a valid YouTube Shorts, Instagram, or Facebook Reel link.")
+    """Validates URL and returns platform name."""
+    patterns = {
+        "youtube": r'(youtube\.com/shorts/|youtu\.be/)',
+        "instagram": r'instagram\.com/(reel|reels|p)/',
+        "facebook": r'(facebook\.com/reel/|fb\.watch/|facebook\.com/share/r/)'
+    }
+    for platform, pattern in patterns.items():
+        if re.search(pattern, url):
+            return platform
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid URL. Please provide a valid YouTube Shorts, Instagram, or Facebook Reel link."
+    )
 
 @app.get("/")
 def health_check():
@@ -116,40 +111,34 @@ def health_check():
 async def summarize_reel(request: SummarizeRequest):
     start_time = time.time()
     logger.info(f"Summarize request received for URL: {request.url}")
-    
     try:
-        # Step 1: Validate URL
         platform = validate_url(request.url)
         logger.info(f"Platform identified: {platform}")
-        
-        # Step 2: Download Audio
         try:
-            audio_path = await download_audio(request.url, platform)
-        except HTTPException as he:
-            raise he
+            audio_path = download_audio(request.url, platform)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Download error: {str(e)}")
             raise HTTPException(status_code=422, detail=f"Download failed: {str(e)}")
-        
-        # Step 3: Transcribe Audio
         try:
-            from services.transcriber import transcribe_audio
             transcript = transcribe_audio(audio_path)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Transcription error: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during transcription")
-        
-        # Step 4: Summarize
+        if not transcript or len(transcript.strip()) < 10:
+            raise HTTPException(status_code=422, detail="No speech detected in video")
         try:
-            from services.summarizer import generate_summary
             summary = generate_summary(transcript)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Summarization error: {str(e)}")
             raise HTTPException(status_code=500, detail="Error during summarization")
-        
         processing_time = round(time.time() - start_time, 1)
         word_count = len(summary.split())
-        
         return {
             "summary": summary,
             "transcript": transcript,
@@ -159,57 +148,43 @@ async def summarize_reel(request: SummarizeRequest):
             "processing_time": processing_time,
             "status": "success"
         }
-    except HTTPException as he:
-        raise he
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in summarize_reel: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/summarize-upload")
 async def summarize_upload(file: UploadFile = File(...)):
-    """
-    Ultimate fallback: Accepts an audio/video file upload, skips yt-dlp download,
-    and directly transcribes and summarizes the content.
-    """
     start_time = time.time()
-    
-    # Generate unique filename in /tmp/
     file_id = str(uuid.uuid4())
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'mp4'
     temp_path = f"/tmp/{file_id}.{ext}"
-    
     try:
-        # Save uploaded file
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
-        logger.info(f"Successfully saved uploaded file to {temp_path}")
-        
-        # Step 1: Transcribe Audio
+        logger.info(f"Saved uploaded file to {temp_path}")
         transcript = transcribe_audio(temp_path)
-        
-        # Step 2: Summarize
+        if not transcript or len(transcript.strip()) < 10:
+            raise HTTPException(status_code=422, detail="No speech detected in video")
         summary = generate_summary(transcript)
-        
         processing_time = round(time.time() - start_time, 1)
         word_count = len(summary.split())
-        
         return {
             "summary": summary,
             "transcript": transcript,
             "source_url": "Uploaded File",
             "platform": "upload",
             "word_count": word_count,
-            "processing_time": processing_time
+            "processing_time": processing_time,
+            "status": "success"
         }
-        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Upload processing error: {e}")
+        logger.error(f"Upload processing error: {str(e)}")
         raise HTTPException(status_code=500, detail="Error processing uploaded file")
     finally:
-        # Cleanup just in case transcriber didn't catch it
         if os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
@@ -220,7 +195,6 @@ async def summarize_upload(file: UploadFile = File(...)):
 def save_summary(request: SaveSummaryRequest):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not configured")
-        
     data = {
         "user_id": request.user_id,
         "source_url": request.source_url,
@@ -230,7 +204,6 @@ def save_summary(request: SaveSummaryRequest):
         "word_count": request.word_count,
         "processing_time": request.processing_time
     }
-    
     try:
         response = supabase.table("summaries").insert(data).execute()
         if len(response.data) > 0:
@@ -245,14 +218,10 @@ def save_summary(request: SaveSummaryRequest):
 def get_history(user_id: str, search: str = Query(None)):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not configured")
-        
     try:
         query = supabase.table("summaries").select("*").eq("user_id", user_id).order("created_at", desc=True)
-        
         if search:
-            # Case insensitive search on summary or source_url
             query = query.or_(f"summary.ilike.%{search}%,source_url.ilike.%{search}%")
-            
         response = query.execute()
         return response.data
     except Exception as e:
@@ -263,9 +232,8 @@ def get_history(user_id: str, search: str = Query(None)):
 def delete_summary(summary_id: str):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not configured")
-        
     try:
-        response = supabase.table("summaries").delete().eq("id", summary_id).execute()
+        supabase.table("summaries").delete().eq("id", summary_id).execute()
         return {"success": True, "message": "Summary deleted"}
     except Exception as e:
         logger.error(f"Supabase delete error: {e}")
@@ -275,10 +243,7 @@ def delete_summary(summary_id: str):
 def save_public_summary(request: SavePublicSummaryRequest):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not configured")
-        
-    # Generate random 8-char alphanumeric share_id
     share_id = str(uuid.uuid4()).replace("-", "")[:8]
-    
     data = {
         "share_id": share_id,
         "summary": request.summary,
@@ -288,11 +253,9 @@ def save_public_summary(request: SavePublicSummaryRequest):
         "word_count": request.word_count,
         "view_count": 0
     }
-    
     try:
         response = supabase.table("public_summaries").insert(data).execute()
         if len(response.data) > 0:
-            # Note: Hardcoded frontend URL as requested, but could be env var
             return {
                 "share_id": share_id,
                 "share_url": f"https://linksumm-ai.vercel.app/s/{share_id}"
@@ -307,23 +270,14 @@ def save_public_summary(request: SavePublicSummaryRequest):
 def get_shared_summary(share_id: str):
     if not supabase:
         raise HTTPException(status_code=500, detail="Database not configured")
-        
     try:
-        # Fetch the summary
         response = supabase.table("public_summaries").select("*").eq("share_id", share_id).execute()
-        
         if len(response.data) == 0:
             raise HTTPException(status_code=404, detail="Shared summary not found")
-            
         summary_data = response.data[0]
-        
-        # Increment view count asynchronously or synchronously
         new_view_count = summary_data.get("view_count", 0) + 1
         supabase.table("public_summaries").update({"view_count": new_view_count}).eq("share_id", share_id).execute()
-        
-        # Update the response data with the new view count
         summary_data["view_count"] = new_view_count
-        
         return summary_data
     except HTTPException:
         raise
