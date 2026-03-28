@@ -13,35 +13,14 @@ export default function SharedSummary() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Mocking the fetch for preview
     const fetchSharedSummary = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const response = await fetch(`/api/shared/${shareId}`);
         
-        // Mock data
-        setSummary({
-          summary: `
-## 📌 One-Line Summary
-A quick guide on how to optimize your morning routine for maximum productivity.
-
-## 📝 Key Points
-* Wake up at the same time every day to regulate your circadian rhythm.
-* Hydrate immediately with a large glass of water before coffee.
-* Spend 10 minutes on light stretching or meditation.
-* Avoid checking your phone or social media for the first hour.
-
-## 🎯 Action Items
-* Set your alarm for 6:30 AM tomorrow.
-* Place a glass of water on your nightstand tonight.
-
-## 🏷️ Tags
-\`#Productivity\` \`#MorningRoutine\` \`#SelfImprovement\` \`#Habits\`
-          `,
-          source_url: "https://instagram.com/reel/mock",
-          platform: "instagram",
-          word_count: 85,
-          created_at: new Date().toISOString()
-        });
+        if (!response.ok) throw new Error('Failed to fetch shared summary');
+        
+        const data = await response.json();
+        setSummary(data);
       } catch (err) {
         setError(true);
       } finally {
@@ -49,7 +28,9 @@ A quick guide on how to optimize your morning routine for maximum productivity.
       }
     };
 
-    fetchSharedSummary();
+    if (shareId) {
+      fetchSharedSummary();
+    }
   }, [shareId]);
 
   return (

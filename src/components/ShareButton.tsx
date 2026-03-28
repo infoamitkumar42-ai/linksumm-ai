@@ -26,14 +26,22 @@ export default function ShareButton({ summary, transcript, sourceUrl, platform, 
 
     setIsGenerating(true);
     try {
-      // Mocking the API call for preview environment
-      // const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/save-public-summary`, { ... });
+      const response = await fetch('/api/save-public-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary,
+          transcript,
+          source_url: sourceUrl,
+          platform,
+          word_count: wordCount
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Failed to generate share link');
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockShareId = Math.random().toString(36).substring(2, 10);
-      const mockShareUrl = `${window.location.origin}/s/${mockShareId}`;
-      
-      setShareUrl(mockShareUrl);
+      setShareUrl(data.share_url);
       setViewCount(0);
       setIsOpen(true);
     } catch (error) {
