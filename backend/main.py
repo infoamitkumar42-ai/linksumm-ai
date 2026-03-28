@@ -92,6 +92,7 @@ from models import (
     SummarizeRequest, SaveSummaryRequest, SavePublicSummaryRequest,
     CheckQuotaRequest, CheckQuotaResponse, CreateSubscriptionRequest,
     RazorpaySubscriptionResponse, PaypalSubscriptionResponse,
+    ExecutePaypalSubscriptionRequest, ExecutePaypalSubscriptionResponse,
     SubscriptionStatusResponse, CancelSubscriptionRequest, CancelSubscriptionResponse,
     PricingResponse, Plan
 )
