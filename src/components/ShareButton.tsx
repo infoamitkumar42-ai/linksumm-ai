@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, X, Link2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ✅ Backend URL configuration
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
+
 interface ShareButtonProps {
   summary: string;
   transcript: string;
@@ -25,8 +28,10 @@ export default function ShareButton({ summary, transcript, sourceUrl, platform, 
     }
 
     setIsGenerating(true);
+    console.log('📡 Calling API:', `${BACKEND_URL}/api/save-public-summary`);
+
     try {
-      const response = await fetch('/api/save-public-summary', {
+      const response = await fetch(`${BACKEND_URL}/api/save-public-summary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -38,13 +43,16 @@ export default function ShareButton({ summary, transcript, sourceUrl, platform, 
         })
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Failed to generate share link');
       
+      console.log('✅ Share URL received:', data.share_url);
       setShareUrl(data.share_url);
       setViewCount(0);
       setIsOpen(true);
     } catch (error) {
+      console.error('❌ Error:', error);
       toast.error('Failed to generate share link');
     } finally {
       setIsGenerating(false);

@@ -9,33 +9,44 @@ import FeaturesSection from '../components/FeaturesSection';
 import Footer from '../components/Footer';
 import ErrorFallback from '../components/ErrorFallback';
 
+// ✅ Backend URL configuration
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Debug: Log backend URL on mount
+  console.log('🔧 Backend URL configured:', BACKEND_URL);
+
   const handleSummarize = async (url: string) => {
     setIsLoading(true);
     setResult(null);
     setError(null);
 
+    console.log('📡 Calling API:', `${BACKEND_URL}/api/summarize`);
+
     try {
-      const response = await fetch('/api/summarize', {
+      const response = await fetch(`${BACKEND_URL}/api/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       });
       
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.detail || 'Failed to process video');
       }
       
+      console.log('✅ Summary received:', data);
       setResult(data);
       toast.success('Summary generated successfully!');
     } catch (err: any) {
+      console.error('❌ Error:', err);
       setError(err.message || 'Failed to process video');
       toast.error('Download failed');
     } finally {
@@ -51,24 +62,29 @@ export default function Home() {
     setResult(null);
     setError(null);
 
+    console.log('📡 Calling API:', `${BACKEND_URL}/api/summarize-upload`);
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch('/api/summarize-upload', {
+      const response = await fetch(`${BACKEND_URL}/api/summarize-upload`, {
         method: 'POST',
         body: formData,
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.detail || 'Failed to process uploaded file');
       }
 
+      console.log('✅ File summarized successfully:', data);
       setResult(data);
       toast.success('File summarized successfully!');
     } catch (err: any) {
+      console.error('❌ Error:', err);
       setError(err.message || 'Failed to process uploaded file');
       toast.error('Upload failed');
     } finally {

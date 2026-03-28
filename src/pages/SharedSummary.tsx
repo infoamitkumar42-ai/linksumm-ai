@@ -6,6 +6,9 @@ import ReactMarkdown from 'react-markdown';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
+// ✅ Backend URL configuration
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
+
 export default function SharedSummary() {
   const { shareId } = useParams();
   const [summary, setSummary] = useState<any>(null);
@@ -14,14 +17,18 @@ export default function SharedSummary() {
 
   useEffect(() => {
     const fetchSharedSummary = async () => {
+      console.log('📡 Calling API:', `${BACKEND_URL}/api/shared/${shareId}`);
       try {
-        const response = await fetch(`/api/shared/${shareId}`);
+        const response = await fetch(`${BACKEND_URL}/api/shared/${shareId}`);
         
+        console.log('📥 Response status:', response.status);
         if (!response.ok) throw new Error('Failed to fetch shared summary');
         
         const data = await response.json();
+        console.log('✅ Shared summary received:', data);
         setSummary(data);
       } catch (err) {
+        console.error('❌ Error:', err);
         setError(true);
       } finally {
         setLoading(false);
