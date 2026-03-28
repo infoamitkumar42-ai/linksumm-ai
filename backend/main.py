@@ -4,7 +4,9 @@ import re
 import uuid
 import logging
 import shutil
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+import traceback
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -23,9 +25,38 @@ load_dotenv()
 # Initialize FastAPI
 app = FastAPI(title="LinkSumm AI Backend")
 
+# GLOBAL EXCEPTION HANDLERS: Ensure we ALWAYS return JSON, never HTML
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"GLOBAL ERROR CAUGHT: {str(exc)}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An unexpected internal error occurred.",
+            "error": str(exc),
+            "status": "error"
+        }
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "status": "error"
+        }
+    )
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
     allow_origins=["*"],  # In production, replace with frontend URL
     allow_credentials=True,
     allow_methods=["*"],
@@ -82,50 +113,57 @@ def health_check():
     return {"status": "alive", "service": "LinkSumm AI"}
 
 @app.post("/api/summarize")
-def summarize_reel(request: SummarizeRequest):
+async def summarize_reel(request: SummarizeRequest):
     start_time = time.time()
+    logger.info(f"Summarize request received for URL: {request.url}")
     
-    # Step 1: Validate URL
-    platform = validate_url(request.url)
-    
-    # Step 2: Download Audio
     try:
-        audio_path = download_audio(request.url, platform)
-    except HTTPException:
-        raise
+        # Step 1: Validate URL
+        platform = validate_url(request.url)
+        logger.info(f"Platform identified: {platform}")
+        
+        # Step 2: Download Audio
+        try:
+            audio_path = await download_audio(request.url, platform)
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            logger.error(f"Download error: {str(e)}")
+            raise HTTPException(status_code=422, detail=f"Download failed: {str(e)}")
+        
+        # Step 3: Transcribe Audio
+        try:
+            from services.transcriber import transcribe_audio
+            transcript = transcribe_audio(audio_path)
+        except Exception as e:
+            logger.error(f"Transcription error: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error during transcription")
+        
+        # Step 4: Summarize
+        try:
+            from services.summarizer import generate_summary
+            summary = generate_summary(transcript)
+        except Exception as e:
+            logger.error(f"Summarization error: {str(e)}")
+            raise HTTPException(status_code=500, detail="Error during summarization")
+        
+        processing_time = round(time.time() - start_time, 1)
+        word_count = len(summary.split())
+        
+        return {
+            "summary": summary,
+            "transcript": transcript,
+            "source_url": request.url,
+            "platform": platform,
+            "word_count": word_count,
+            "processing_time": processing_time,
+            "status": "success"
+        }
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Download error: {e}")
-        raise HTTPException(status_code=422, detail="Could not download. Make sure reel is public")
-    
-    # Step 3: Transcribe Audio
-    try:
-        transcript = transcribe_audio(audio_path)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Transcription error: {e}")
-        raise HTTPException(status_code=500, detail="Error during transcription")
-    
-    # Step 4: Summarize
-    try:
-        summary = generate_summary(transcript)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Summarization error: {e}")
-        raise HTTPException(status_code=500, detail="Error during summarization")
-    
-    processing_time = round(time.time() - start_time, 1)
-    word_count = len(summary.split())
-    
-    return {
-        "summary": summary,
-        "transcript": transcript,
-        "source_url": request.url,
-        "platform": platform,
-        "word_count": word_count,
-        "processing_time": processing_time
-    }
+        logger.error(f"Unexpected error in summarize_reel: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/summarize-upload")
 async def summarize_upload(file: UploadFile = File(...)):

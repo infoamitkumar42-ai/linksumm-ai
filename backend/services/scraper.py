@@ -3,34 +3,45 @@ import uuid
 import logging
 import subprocess
 import requests
+import asyncio
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-def download_audio(url: str, platform: str) -> str:
+async def download_audio(url: str, platform: str) -> str:
     """
     Multi-platform audio downloader with fallback strategies.
     Returns path to downloaded audio file.
     """
     logger.info(f"Starting download process for {platform} URL: {url}")
     
-    if platform == "youtube":
-        file_path = download_youtube_audio(url)
-    elif platform == "instagram":
-        file_path = download_instagram_with_fallbacks(url)
-    elif platform == "facebook":
-        file_path = download_facebook_audio(url)
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
+    try:
+        if platform == "youtube":
+            file_path = await asyncio.to_thread(download_youtube_audio, url)
+        elif platform == "instagram":
+            file_path = await download_instagram_with_fallbacks(url)
+        elif platform == "facebook":
+            file_path = await asyncio.to_thread(download_facebook_audio, url)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
+            
+        # Validate the downloaded file
+        await asyncio.to_thread(validate_audio_file, file_path)
         
-    # Validate the downloaded file
-    validate_audio_file(file_path)
-    
-    return file_path
+        return file_path
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Download process failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 def download_youtube_audio(url: str) -> str:
     """YouTube Shorts - most reliable method"""
-    import yt_dlp
+    try:
+        import yt_dlp
+    except ImportError:
+        logger.error("yt-dlp not installed")
+        raise Exception("Downloader dependency missing")
     
     file_id = str(uuid.uuid4())
     output_template = f"/tmp/{file_id}.%(ext)s"
@@ -54,44 +65,46 @@ def download_youtube_audio(url: str) -> str:
         logger.info("Downloading YouTube audio using yt-dlp")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.extract_info(url, download=True)
-            return expected_filename
+            if os.path.exists(expected_filename):
+                return expected_filename
+            raise Exception("File not created after download")
     except Exception as e:
         logger.error(f"YouTube download failed: {str(e)}")
-        raise HTTPException(status_code=422, detail="Failed to download YouTube video. It might be private or unavailable.")
+        raise Exception(f"YouTube download failed: {str(e)}")
 
-def download_instagram_with_fallbacks(url: str) -> str:
+async def download_instagram_with_fallbacks(url: str) -> str:
     """Try multiple methods for Instagram until one succeeds"""
     
     # Method 1: yt-dlp with optimized settings
     try:
         logger.info("Instagram Method 1: Trying yt-dlp")
-        return download_instagram_ytdlp(url)
+        return await asyncio.to_thread(download_instagram_ytdlp, url)
     except Exception as e1:
         logger.warning(f"Method 1 failed: {str(e1)}")
         
         # Method 2: Instaloader
         try:
             logger.info("Instagram Method 2: Trying Instaloader")
-            return download_instagram_instaloader(url)
+            return await asyncio.to_thread(download_instagram_instaloader, url)
         except Exception as e2:
             logger.warning(f"Method 2 failed: {str(e2)}")
             
             # Method 3: Direct Extraction
             try:
                 logger.info("Instagram Method 3: Trying Direct Extraction")
-                return download_instagram_direct(url)
+                return await asyncio.to_thread(download_instagram_direct, url)
             except Exception as e3:
                 logger.warning(f"Method 3 failed: {str(e3)}")
                 
                 # Method 4: Gallery-dl
                 try:
                     logger.info("Instagram Method 4: Trying gallery-dl")
-                    return download_instagram_gallerydl(url)
+                    return await asyncio.to_thread(download_instagram_gallerydl, url)
                 except Exception as e4:
                     logger.error(f"All Instagram download methods failed. Last error: {str(e4)}")
                     raise HTTPException(
                         status_code=422, 
-                        detail="Instagram blocked automatic download. Try: 1) YouTube Shorts link instead, or 2) Upload video file manually"
+                        detail="Instagram blocked automatic download. Please try: 1) A different link, or 2) Upload the video file manually."
                     )
 
 def download_instagram_ytdlp(url: str) -> str:
