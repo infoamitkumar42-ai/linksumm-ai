@@ -3,12 +3,11 @@ import uuid
 import logging
 import subprocess
 import requests
-import asyncio
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-async def download_audio(url: str, platform: str) -> str:
+def download_audio(url: str, platform: str) -> str:
     """
     Multi-platform audio downloader with fallback strategies.
     Returns path to downloaded audio file.
@@ -17,16 +16,16 @@ async def download_audio(url: str, platform: str) -> str:
     
     try:
         if platform == "youtube":
-            file_path = await asyncio.to_thread(download_youtube_audio, url)
+            file_path = download_youtube_audio(url)
         elif platform == "instagram":
-            file_path = await download_instagram_with_fallbacks(url)
+            file_path = download_instagram_with_fallbacks(url)
         elif platform == "facebook":
-            file_path = await asyncio.to_thread(download_facebook_audio, url)
+            file_path = download_facebook_audio(url)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
             
         # Validate the downloaded file
-        await asyncio.to_thread(validate_audio_file, file_path)
+        validate_audio_file(file_path)
         
         return file_path
     except HTTPException as he:
@@ -72,34 +71,34 @@ def download_youtube_audio(url: str) -> str:
         logger.error(f"YouTube download failed: {str(e)}")
         raise Exception(f"YouTube download failed: {str(e)}")
 
-async def download_instagram_with_fallbacks(url: str) -> str:
+def download_instagram_with_fallbacks(url: str) -> str:
     """Try multiple methods for Instagram until one succeeds"""
     
     # Method 1: yt-dlp with optimized settings
     try:
         logger.info("Instagram Method 1: Trying yt-dlp")
-        return await asyncio.to_thread(download_instagram_ytdlp, url)
+        return download_instagram_ytdlp(url)
     except Exception as e1:
         logger.warning(f"Method 1 failed: {str(e1)}")
         
         # Method 2: Instaloader
         try:
             logger.info("Instagram Method 2: Trying Instaloader")
-            return await asyncio.to_thread(download_instagram_instaloader, url)
+            return download_instagram_instaloader(url)
         except Exception as e2:
             logger.warning(f"Method 2 failed: {str(e2)}")
             
             # Method 3: Direct Extraction
             try:
                 logger.info("Instagram Method 3: Trying Direct Extraction")
-                return await asyncio.to_thread(download_instagram_direct, url)
+                return download_instagram_direct(url)
             except Exception as e3:
                 logger.warning(f"Method 3 failed: {str(e3)}")
                 
                 # Method 4: Gallery-dl
                 try:
                     logger.info("Instagram Method 4: Trying gallery-dl")
-                    return await asyncio.to_thread(download_instagram_gallerydl, url)
+                    return download_instagram_gallerydl(url)
                 except Exception as e4:
                     logger.error(f"All Instagram download methods failed. Last error: {str(e4)}")
                     raise HTTPException(
