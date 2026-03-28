@@ -1,16 +1,13 @@
 import os
 import logging
-import google.generativeai as genai
+from google import genai
 from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
-# Initialize Gemini
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    logger.error("GEMINI_API_KEY not found in environment variables")
-
-genai.configure(api_key=api_key)
+# Initialize Gemini client
+# It automatically picks up GEMINI_API_KEY from environment variables
+client = genai.Client()
 
 def generate_summary(transcript: str) -> str:
     """
@@ -49,9 +46,11 @@ def generate_summary(transcript: str) -> str:
     try:
         logger.info("Sending transcript to Gemini for summarization")
         
-        # Use gemini-1.5-flash (fastest model)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        # Using gemini-3-flash-preview as per system instructions for basic text tasks
+        response = client.models.generate_content(
+            model='gemini-3-flash-preview',
+            contents=prompt,
+        )
         
         summary_text = response.text
         
@@ -67,12 +66,12 @@ def generate_summary(transcript: str) -> str:
     except Exception as e:
         logger.error(f"Summarization error: {str(e)}")
         # Handle rate limits (15 req/min on free tier)
-        if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+        if "429" in str(e) or "quota" in str(e).lower():
             raise HTTPException(
                 status_code=429, 
                 detail="Summarization rate limit exceeded. Please try again later."
             )
         raise HTTPException(
             status_code=500, 
-            detail=f"Error during summarization: {str(e)}"
+            detail="Error during summarization process"
         )

@@ -3,7 +3,8 @@ import time
 import re
 import uuid
 import logging
-from fastapi import FastAPI, HTTPException, Query
+import shutil
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -62,16 +63,19 @@ class SavePublicSummaryRequest(BaseModel):
     word_count: int
 
 def validate_url(url: str) -> str:
-    """Validates if the URL is from Instagram or Facebook and returns the platform."""
+    """Validates if the URL is from YouTube Shorts, Instagram, or Facebook and returns the platform."""
+    yt_pattern = r'(youtube\.com/shorts/|youtu\.be/)'
     ig_pattern = r'instagram\.com/(reel|reels|p)/'
     fb_pattern = r'(facebook\.com/reel/|fb\.watch/|facebook\.com/share/r/)'
     
-    if re.search(ig_pattern, url):
+    if re.search(yt_pattern, url):
+        return "youtube"
+    elif re.search(ig_pattern, url):
         return "instagram"
     elif re.search(fb_pattern, url):
         return "facebook"
     else:
-        raise HTTPException(status_code=400, detail="Invalid URL. Please provide a valid Instagram or Facebook Reel link.")
+        raise HTTPException(status_code=400, detail="Invalid URL. Please provide a valid YouTube Shorts, Instagram, or Facebook Reel link.")
 
 @app.get("/")
 def health_check():
@@ -86,7 +90,7 @@ def summarize_reel(request: SummarizeRequest):
     
     # Step 2: Download Audio
     try:
-        audio_path = download_audio(request.url)
+        audio_path = download_audio(request.url, platform)
     except HTTPException:
         raise
     except Exception as e:
@@ -122,6 +126,57 @@ def summarize_reel(request: SummarizeRequest):
         "word_count": word_count,
         "processing_time": processing_time
     }
+
+@app.post("/api/summarize-upload")
+async def summarize_upload(file: UploadFile = File(...)):
+    """
+    Ultimate fallback: Accepts an audio/video file upload, skips yt-dlp download,
+    and directly transcribes and summarizes the content.
+    """
+    start_time = time.time()
+    
+    # Generate unique filename in /tmp/
+    file_id = str(uuid.uuid4())
+    ext = file.filename.split('.')[-1] if '.' in file.filename else 'mp4'
+    temp_path = f"/tmp/{file_id}.{ext}"
+    
+    try:
+        # Save uploaded file
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        logger.info(f"Successfully saved uploaded file to {temp_path}")
+        
+        # Step 1: Transcribe Audio
+        transcript = transcribe_audio(temp_path)
+        
+        # Step 2: Summarize
+        summary = generate_summary(transcript)
+        
+        processing_time = round(time.time() - start_time, 1)
+        word_count = len(summary.split())
+        
+        return {
+            "summary": summary,
+            "transcript": transcript,
+            "source_url": "Uploaded File",
+            "platform": "upload",
+            "word_count": word_count,
+            "processing_time": processing_time
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload processing error: {e}")
+        raise HTTPException(status_code=500, detail="Error processing uploaded file")
+    finally:
+        # Cleanup just in case transcriber didn't catch it
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
 @app.post("/api/save-summary")
 def save_summary(request: SaveSummaryRequest):
