@@ -8,6 +8,10 @@ import SummaryCard from '../components/SummaryCard';
 import FeaturesSection from '../components/FeaturesSection';
 import Footer from '../components/Footer';
 import ErrorFallback from '../components/ErrorFallback';
+import { useFreemium } from '../hooks/useFreemium';
+import { QuotaExceededModal } from '../components/QuotaExceededModal';
+import { AdBanner } from '../components/AdBanner';
+import { supabase } from '../lib/supabase';
 
 // ✅ Backend URL configuration
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
@@ -17,6 +21,11 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+  const [quotaMessage, setQuotaMessage] = useState('');
+  const [quotaReason, setQuotaReason] = useState('');
+
+  const { checkQuota, isPremium } = useFreemium();
 
   // Debug: Log backend URL on mount
   console.log('🔧 Backend URL configured:', BACKEND_URL);
@@ -26,13 +35,26 @@ export default function Home() {
     setResult(null);
     setError(null);
 
+    // Check quota first
+    const quota = await checkQuota();
+    if (quota && !quota.can_summarize) {
+      setQuotaMessage(quota.message || "You've reached your daily limit.");
+      setQuotaReason(quota.reason);
+      setIsQuotaModalOpen(true);
+      setIsLoading(false);
+      return;
+    }
+
     console.log('📡 Calling API:', `${BACKEND_URL}/api/summarize`);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
       const response = await fetch(`${BACKEND_URL}/api/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, user_id: userId })
       });
       
       console.log('📥 Response status:', response.status);
@@ -62,13 +84,31 @@ export default function Home() {
     setResult(null);
     setError(null);
 
+    // Check quota first
+    const quota = await checkQuota();
+    if (quota && !quota.can_summarize) {
+      setQuotaMessage(quota.message || "You've reached your daily limit.");
+      setQuotaReason(quota.reason);
+      setIsQuotaModalOpen(true);
+      setIsLoading(false);
+      return;
+    }
+
     console.log('📡 Calling API:', `${BACKEND_URL}/api/summarize-upload`);
 
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/summarize-upload`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      
+      let uploadUrl = `${BACKEND_URL}/api/summarize-upload`;
+      if (userId) {
+        uploadUrl += `?user_id=${userId}`;
+      }
+
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
       });
@@ -133,24 +173,33 @@ export default function Home() {
         {isLoading && <LoadingState />}
 
         {result && !isLoading && (
-          <SummaryCard 
-            summary={result.summary}
-            transcript={result.transcript}
-            sourceUrl={result.source_url}
-            platform={result.platform}
-            wordCount={result.word_count}
-            processingTime={result.processing_time}
-            onReset={() => {
-              setResult(null);
-              setError(null);
-            }}
-          />
+          <>
+            <SummaryCard 
+              summary={result.summary}
+              transcript={result.transcript}
+              sourceUrl={result.source_url}
+              platform={result.platform}
+              wordCount={result.word_count}
+              processingTime={result.processing_time}
+              onReset={() => {
+                setResult(null);
+                setError(null);
+              }}
+            />
+            {!isPremium && <AdBanner slotId="YOUR_AD_SLOT_ID" />}
+          </>
         )}
 
         <FeaturesSection />
       </main>
 
       <Footer />
+      <QuotaExceededModal 
+        isOpen={isQuotaModalOpen} 
+        onClose={() => setIsQuotaModalOpen(false)} 
+        message={quotaMessage} 
+        reason={quotaReason}
+      />
     </div>
   );
 }

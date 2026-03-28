@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import History from './pages/History';
 import SharedSummary from './pages/SharedSummary';
 import ProtectedRoute from './components/ProtectedRoute';
+import { Pricing } from './pages/Pricing';
+import { Account } from './pages/Account';
 
 export default function App() {
   return (
@@ -18,12 +20,21 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route path="/s/:shareId" element={<SharedSummary />} />
         <Route 
           path="/history" 
           element={
             <ProtectedRoute>
               <History />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/account" 
+          element={
+            <ProtectedRoute>
+              <Account />
             </ProtectedRoute>
           } 
         />

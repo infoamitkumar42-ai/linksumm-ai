@@ -10,6 +10,8 @@ import { getRelativeTime } from '../lib/utils';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import ShareButton from '../components/ShareButton';
 import { Link } from 'react-router-dom';
+import { useFreemium } from '../hooks/useFreemium';
+import { AdBanner } from '../components/AdBanner';
 
 export default function History() {
   const [summaries, setSummaries] = useState<any[]>([]);
@@ -20,6 +22,7 @@ export default function History() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState<string | null>(null);
+  const { isPremium } = useFreemium();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -90,7 +93,8 @@ export default function History() {
       <Navbar />
       
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-24 pb-20">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        {!isPremium && <AdBanner slotId="YOUR_AD_SLOT_ID" />}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 mt-4">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">📚 Your Summaries</h1>
