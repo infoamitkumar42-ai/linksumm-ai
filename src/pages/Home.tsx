@@ -14,7 +14,6 @@ import { AdBanner } from '../components/AdBanner';
 import { supabase } from '../lib/supabase';
 import AnimatedBackground from '../components/AnimatedBackground';
 
-// ✅ Backend URL configuration
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
 
 export default function Home() {
@@ -28,7 +27,6 @@ export default function Home() {
 
   const { checkQuota, incrementUsage, isPremium } = useFreemium();
 
-  // Debug: Log backend URL on mount
   console.log('🔧 Backend URL configured:', BACKEND_URL);
 
   const handleSummarize = async (url: string) => {
@@ -36,7 +34,6 @@ export default function Home() {
     setResult(null);
     setError(null);
 
-    // Check quota first
     const quota = await checkQuota();
     if (quota && !quota.can_summarize) {
       setQuotaMessage(quota.message || "You've reached your daily limit.");
@@ -70,7 +67,6 @@ export default function Home() {
       toast.success('Summary generated successfully!');
       await incrementUsage();
 
-      // Save to history if logged in
       if (userId) {
         try {
           await fetch(`${BACKEND_URL}/api/save-summary`, {
@@ -108,7 +104,6 @@ export default function Home() {
     setResult(null);
     setError(null);
 
-    // Check quota first
     const quota = await checkQuota();
     if (quota && !quota.can_summarize) {
       setQuotaMessage(quota.message || "You've reached your daily limit.");
@@ -167,10 +162,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-[#007AFF]/30 relative overflow-hidden">
       
-      {/* ✨ Animated Background - spins behind everything */}
       <AnimatedBackground />
       
-      {/* All content on top of animation */}
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
         
