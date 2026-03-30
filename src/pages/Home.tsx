@@ -12,6 +12,7 @@ import { useFreemium } from '../hooks/useFreemium';
 import { QuotaExceededModal } from '../components/QuotaExceededModal';
 import { AdBanner } from '../components/AdBanner';
 import { supabase } from '../lib/supabase';
+import AnimatedBackground from '../components/AnimatedBackground';
 
 // ✅ Backend URL configuration
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
@@ -164,60 +165,68 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-[#007AFF]/30 flex flex-col">
-      <Navbar />
+    <div className="min-h-screen bg-black text-white selection:bg-[#007AFF]/30 relative overflow-hidden">
       
-      <main className="flex-1 flex flex-col relative z-10">
-        <HeroSection />
+      {/* ✨ Animated Background - spins behind everything */}
+      <AnimatedBackground />
+      
+      {/* All content on top of animation */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <Navbar />
         
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileUpload} 
-          accept="video/*,audio/*" 
-          className="hidden" 
-        />
+        <main className="flex-1 flex flex-col">
+          <HeroSection />
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            accept="video/*,audio/*" 
+            className="hidden" 
+          />
 
-        {!isLoading && !result && (
-          <>
-            <LinkInput 
-              onSubmit={handleSummarize} 
-              onUploadClick={triggerFileUpload}
-              isLoading={isLoading} 
-            />
-            {error && (
-              <ErrorFallback 
-                error={error} 
-                onUploadClick={triggerFileUpload} 
+          {!isLoading && !result && (
+            <>
+              <LinkInput 
+                onSubmit={handleSummarize} 
+                onUploadClick={triggerFileUpload}
+                isLoading={isLoading} 
               />
-            )}
-          </>
-        )}
+              {error && (
+                <ErrorFallback 
+                  error={error} 
+                  onUploadClick={triggerFileUpload} 
+                />
+              )}
+            </>
+          )}
 
-        {isLoading && <LoadingState />}
+          {isLoading && <LoadingState />}
 
-        {result && !isLoading && (
-          <>
-            <SummaryCard 
-              summary={result.summary}
-              transcript={result.transcript}
-              sourceUrl={result.source_url}
-              platform={result.platform}
-              wordCount={result.word_count}
-              processingTime={result.processing_time}
-              onReset={() => {
-                setResult(null);
-                setError(null);
-              }}
-            />
-            {!isPremium && <AdBanner slotId="YOUR_AD_SLOT_ID" />}
-          </>
-        )}
+          {result && !isLoading && (
+            <>
+              <SummaryCard 
+                summary={result.summary}
+                transcript={result.transcript}
+                sourceUrl={result.source_url}
+                platform={result.platform}
+                wordCount={result.word_count}
+                processingTime={result.processing_time}
+                onReset={() => {
+                  setResult(null);
+                  setError(null);
+                }}
+              />
+              {!isPremium && <AdBanner slotId="YOUR_AD_SLOT_ID" />}
+            </>
+          )}
 
-        <FeaturesSection />
-      </main>
+          <FeaturesSection />
+        </main>
 
-      <Footer />
+        <Footer />
+      </div>
+
       <QuotaExceededModal 
         isOpen={isQuotaModalOpen} 
         onClose={() => setIsQuotaModalOpen(false)} 
