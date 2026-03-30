@@ -68,6 +68,28 @@ export default function Home() {
       setResult(data);
       toast.success('Summary generated successfully!');
       await incrementUsage();
+
+      // Save to history if logged in
+      if (userId) {
+        try {
+          await fetch(`${BACKEND_URL}/api/save-summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId,
+              source_url: data.source_url,
+              platform: data.platform,
+              transcript: data.transcript,
+              summary: data.summary,
+              word_count: data.word_count,
+              processing_time: data.processing_time
+            })
+          });
+          toast.success('Summary saved to history');
+        } catch (err) {
+          console.error('❌ Failed to save summary:', err);
+        }
+      }
     } catch (err: any) {
       console.error('❌ Error:', err);
       setError(err.message || 'Failed to process video');

@@ -13,6 +13,8 @@ import { Link } from 'react-router-dom';
 import { useFreemium } from '../hooks/useFreemium';
 import { AdBanner } from '../components/AdBanner';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "https://linksumm-backend.onrender.com";
+
 export default function History() {
   const [summaries, setSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,19 +42,15 @@ export default function History() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      let query = supabase
-        .from('summaries')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
+      let url = `${BACKEND_URL}/api/history/${session.user.id}`;
       if (debouncedSearch) {
-        query = query.or(`summary.ilike.%${debouncedSearch}%,source_url.ilike.%${debouncedSearch}%`);
+        url += `?search=${encodeURIComponent(debouncedSearch)}`;
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch history');
+      
+      const data = await response.json();
       setSummaries(data || []);
     } catch (error: any) {
       toast.error('Failed to load history');
@@ -65,8 +63,10 @@ export default function History() {
     if (!deleteId) return;
 
     try {
-      const { error } = await supabase.from('summaries').delete().eq('id', deleteId);
-      if (error) throw error;
+      const response = await fetch(`${BACKEND_URL}/api/summary/${deleteId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to delete summary');
       
       setSummaries(summaries.filter(s => s.id !== deleteId));
       toast.success('Summary deleted ✅');

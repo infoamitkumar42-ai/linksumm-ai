@@ -50,6 +50,10 @@ export default function Navbar() {
                 <History className="w-4 h-4" />
                 <span className="hidden sm:inline">History</span>
               </Link>
+              <Link to="/pricing" className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                <Crown className="w-4 h-4" />
+                <span className="hidden sm:inline">Pricing</span>
+              </Link>
               <div className="h-4 w-px bg-white/20"></div>
               <button 
                 onClick={handleSignOut}
@@ -65,12 +69,18 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link 
-              to="/login"
-              className="px-4 py-2 rounded-xl text-sm font-medium bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
-            >
-              Sign In
-            </Link>
+            <>
+              <Link to="/pricing" className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                <Crown className="w-4 h-4" />
+                <span className="hidden sm:inline">Pricing</span>
+              </Link>
+              <Link 
+                to="/login"
+                className="px-4 py-2 rounded-xl text-sm font-medium bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+              >
+                Sign In
+              </Link>
+            </>
           )}
         </div>
       </div>
